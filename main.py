@@ -2,6 +2,7 @@ from bs4 import BeautifulSoup
 import grequests
 import requests
 import time
+import conf as CFG
 
 def get_movies_url(url, headers):
     """parse top-250 page and return tuple of lists of movies name and its references (without domain)"""
@@ -40,6 +41,64 @@ def get_directors(response):
     return directors_list
 
 
+def collect_directors_requests(SITE_URL, movies_list):
+    """"""
+    """RECON_ATTEMPTS_NUM = 10
+    HEADERS = {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET',
+        'Access-Control-Allow-Headers': 'Content-Type',
+        'Access-Control-Max-Age': '3600',
+        'User-Agent': 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:52.0) Gecko/20100101 Firefox/52.0'
+    }"""
+    directors_list = []
+    counter = 0
+    for film_url in movies_list[1]:
+        for attempt in range(CFG.RECON_ATTEMPTS_NUM):
+            try:
+                response = get_response_1(SITE_URL + film_url, CFG.HEADERS)
+                directors_list.append(get_directors(response))
+                print(counter, end=" ")
+                counter += 1
+                break
+            except ConnectionError:
+                time.sleep(3)
+
+            except RuntimeError:
+                directors_list.append('')
+                counter += 1
+                break
+                print("Check film ", SITE_URL + film_url)
+    return directors_list
+
+
+def collect_directors_grequests(SITE_URL, movies_list):
+    directors_list = []
+    counter = 0
+    BATCH_SIZE = 10
+    i = 0
+    req_batch = []
+    for film_url in movies_list[1]:
+        req_batch.append(SITE_URL + film_url)
+        i += 1
+        if i < BATCH_SIZE:
+            continue
+        i = 0
+        rs = (grequests.post(u) for u in req_batch)
+        req_batch = []
+        responses = grequests.map(rs)
+        for response in responses:
+            try:
+                directors_list.append(get_directors(response))
+                print(counter, end=" ")
+                counter += 1
+            except RuntimeError:
+                directors_list.append('')
+                counter += 1
+                print("Check film ", SITE_URL + film_url)
+    return directors_list
+
+
 def print_movies_dir(movies_list, directors_list):
     """printint top-250 movies in format asked. In input lists ordered in same order by movie with same len"""
     for i in range(len(movies_list)):
@@ -59,51 +118,36 @@ def main():
 
     movies_list = get_movies_url(TOP_URL, HEADERS)
 
-    directors_list = []
+    directors_list = collect_directors_requests(SITE_URL, movies_list)
+
+    """directors_list = []
 
     counter = 0
     RECON_ATTEMPTS_NUM = 5
     BATCH_SIZE = 10
     i = 0
     req_batch = []
-    for film_url in movies_list[1]:
+    for film_url in movies_list[1]:"""
 
 
-        req_batch.append(SITE_URL + film_url)
-        i += 1
-        if i < BATCH_SIZE:
-            continue
-        i = 0
-        rs = (grequests.post(u) for u in req_batch)
-        req_batch = []
-        responses = grequests.map(rs)
-        for response in responses:
-            try:
-                directors_list.append(get_directors(response))
-                print(counter, end=" ")
-                counter += 1
-                #break
-            except RuntimeError:
-                directors_list.append('')
-                counter += 1
-                #break
-                print("Check film ", SITE_URL + film_url)
 
-        '''for attempt in range(RECON_ATTEMPTS_NUM):
-            try:
-                response = get_response_1(SITE_URL + film_url, HEADERS)
-                directors_list.append(get_directors(response))
-                print(counter, end=" ")
-                counter += 1
-                break
-            except ConnectionError:
-                time.sleep(3)
 
-            except RuntimeError:
-                directors_list.append('')
-                counter += 1
-                break
-                print("Check film ", SITE_URL + film_url)'''
+
+    '''for attempt in range(RECON_ATTEMPTS_NUM):
+        try:
+            response = get_response_1(SITE_URL + film_url, HEADERS)
+            directors_list.append(get_directors(response)) 
+            print(counter, end=" ")
+            counter += 1
+            break
+        except ConnectionError:
+            time.sleep(3)
+
+        except RuntimeError:
+            directors_list.append('')
+            counter += 1
+            break
+            print("Check film ", SITE_URL + film_url)'''
 
     print_movies_dir(movies_list[0], directors_list)
 
